@@ -195,6 +195,13 @@ Player movement.
 
 `one_move_rogue` is the toplevel player movement command, which does
 the smart attack, handling confusion and teleportitis and the works.
+Long move is `multiple_move_rogue`. The direction values are just
+the default movement key codes.
+
+Hunger check is here. I guess because it's part of player update
+tick.
+
+`reg_move` updates monsters and status effects.
 
 ### `object.c`
 
@@ -212,8 +219,22 @@ iterating the entire list and returning the first one with given
 coords. It takes the starter object as parameter, so you can repeat
 the call with that object to get further objects. Clever.
 
+`make_party` seems to be for creating a batch of new random monsters
+periodically on the current map.
+
 ### `pack.c`
-### `patchlevel.h`
+
+Inventory and item handling. Special logic hooked to the functions,
+like a scare monster scroll turning to dust if you drop it and pick
+it up again. (The scrolls on the ground stop monsters from entering
+the cell, so having them freely movable would make them multi-use.)
+
+You can't drop items in cells that already have an item. The
+intrusive linked list pattern should let you have item stacks pretty
+easily. Maybe they're an user interface headache.
+
+A lot of UI stuff mixed with the logic again.
+
 ### `play.c`
 
 Toplevel gameplay function `play_level`.
@@ -227,7 +248,23 @@ interesting, and the utility functions are pretty simple.
 
 ### `ring.c`
 
+Ring items. These grant you persistent effects. `put_on_ring` is the
+command to wear one. `ring_stats` resets the ring-relevant effects,
+then applies them based on the rings the player is wearing. I think
+this needs to assume that nothing else than a ring can affect any of
+those variables.
+
 ### `room.c`
+
+Rooms are a special thing in Rogue.
+
+Dungeon is the actual tile map. I think the map memory might be just
+the screen buffer... At least that's the only way I see
+`draw_magic_map` updating visible stuff. Though the dungeon tiles do
+have a `HIDDEN` flag.
+
+`dr_course` is some kind of monster pathfinding routine. Could maybe
+use a bit more comments to figure out just what the deal is.
 
 ### `save.c`
 
@@ -246,6 +283,8 @@ write, so you can use the same code for both saving and loading a
 game. A bit like the pattern Boost::Serialize uses much later.
 
 ### `score.c`
+
+End game stuff. Death and victory messages. Printing score.
 
 ### `spec_hit.c`
 
