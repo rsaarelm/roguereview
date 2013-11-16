@@ -33,3 +33,5 @@ for x in cache/*.tgz; do tar xzvf $x; done
 unzip -o cache/gh-1100-src.zip
 mkdir -p moria; cd moria; unzip -o ../cache/mor552cs.zip; cd -
 unzip -o cache/rogue-libc5-ncurses.zip; tar xzvf rogue-libc5-ncurses.tar.gz; rm rogue-libc5-ncurses.tar.gz
+
+if [ ! -d nethack4 ]; then git clone git://gitorious.org/nitrohack/ais523.git nethack4; fi
