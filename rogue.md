@@ -288,13 +288,56 @@ End game stuff. Death and victory messages. Printing score.
 
 ### `spec_hit.c`
 
+Status effects from monsters here. `special_hit` is the starting
+point function.
+
+When the player gets frozen, there's just a loop calling `mv_mons`.
+Nothing more complex for mucking with the update timing system.
+
+Other special behavior like monsters going for gold on the ground
+also here (`seek_gold`).
+
 ### `throw.c`
+
+The player throwing items. Starting point function `throw`. Complex
+mix of interface, gamestate queries and update logic again. Can only
+throw in the main movement directions.
+
+You can throw daggers, shurikens or darts, or arrows if you're
+wielding a bow. The weapon types are hardcoded in
+`throw_at_monster`. Appropriate weapons do more damage and hit
+better.
+
+There's a complicated function `flop_weapon` for finding a spot for
+the object that falls on the ground. Apparently there needs to be
+free space, you can't just have the thing fall down in the same cell
+a monster is occupying.
 
 ### `trap.c`
 
+Traps are stateful, there's a table of them, and the location lookup
+is done using `trap_at`. I guess ADOM does one cleverer here, by
+determining trap type from position hash function, so it can have
+the traps as pretty much stateless terrain. There doesn't seem to be
+anything to the trap data beyond the type and the position.
+
+Traps only get created in rooms, as usual for the rooms/corridors
+dynamic.
+
 ### `use.c`
 
+Using perishables. Potions, scrolls, food. Identification code here
+too.
+
+Hallucination just operates on the screen buffer and turns item and
+monster characters on screen into random characters.
+
+`relight` repaints the screen.
+
 ### `zap.c`
+
+Zapping wands. These give status effects to monsters. `zap_monster`
+is the effect function.
 
 Data structures
 ---------------
