@@ -117,13 +117,8 @@ through. Some terminal arcana here.
 Functions to map interrupt, quit and hangup signals to game
 functions. Interrupt is used to stop autorest and autofight.
 
-Some file status operations.
-
-Reading time for save games.
-
-Reading environment variables.
-
-Also malloc, interestingly.
+Some file status operations. Reading time for save games. Reading
+environment variables. Also malloc, interestingly.
 
 Seeding the rng, this one uses process id, which seems kinda weak.
 
