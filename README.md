@@ -91,7 +91,7 @@ Question list:
 
 - How would you add new monsters or items?
 - How would you add new effects or spells?
-- How would you attack new other rules?
+- How would you add other new rules?
 
 ----
 
