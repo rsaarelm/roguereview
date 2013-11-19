@@ -24,10 +24,12 @@ get https://sites.google.com/site/broguegame/brogue-linux-1.7.3.tar.gz
 get http://downloads.sourceforge.net/ivan/ivan-0.50.tar.gz
 get http://homepages.cwi.nl/~aeb/games/hack/hack-1.0.3.tar.gz
 get http://downloads.sourceforge.net/gearhead/gearhead/1.100/gh-1100-src.zip
+get http://sourceforge.net/projects/avanor/files/avanor/0.5.8/avanor-0.5.8-src.tar.bz2
 
 cd -
 
 for x in cache/*.tar.gz; do tar xzvf $x; done
+for x in cache/*.tar.bz2; do tar xjvf $x; done
 for x in cache/*.tgz; do tar xzvf $x; done
 
 unzip -o cache/gh-1100-src.zip
