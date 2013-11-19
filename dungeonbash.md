@@ -57,8 +57,11 @@ Monster and item spawn object symbols are done using a strange
 
 Why not just use enum for these?
 
-Structs `permon` and `permobj` are used for the monster and object
-generation. The live versions are `mon` and `obj`.
+Structs `permon` and `permobj` are used for the monster and item
+generation. The live versions are `mon` and `obj`. Items have a
+single "power" stat that tells how good a weapon or an armor is.
+The behavior code will sometimes have special conditions on
+specifically named equipment types though.
 
 There is a note about changing the fixed 100-element monster table
 to be a "Tatham tree" when the game gets developed further. Does it
@@ -136,13 +139,97 @@ There's some concept of room in use. Map cells can belong to a room,
 and rooms have bounds values and a connectivity matrix. Maps are 42
 x 42 cell, and they scroll, Dungeon Crawl style.
 
+I think the mapgen uses the classic Rogue generation where the map
+is divided into a grid, and new rooms are placed within the grid
+cells, so you don't need to worry about room overlaps.
+
+Rooms are connected with straight corridors usning the `link_rooms`
+function. There are always doors between the corridors.
+
+Going down stairs calles `leave_level`, which cleans up the level
+data of the current level, and `make_new_level`, which builds the
+next one. `leave_level` sets global variables `status_updated` and
+`map_updated`.
+
+`build_level` is the mapgen top function. It saves the rng state so
+that the level can be recreated from save file, then then links the
+rooms. The linking is basically a bunch of hardcoded logic that
+relies on the 3x3 room layout.
+
+There are zoo rooms created with `generate_zoo`, but they only get 9
+monsters, instead of being filled with monsters like the tension
+rooms in Adom.
+
+The generator tracks the room with the stairs and the room with the
+zoo, and makes sure the player isn't placed in either.
+
 ### `misc.c`
+
+Just string names for damage types. I wonder if there was supposed
+to be more here.
+
 ### `objects.c`
+
+Using the various perishable objects here. As usual, all references
+to objects at API level are integer indices to arrays, not pointers.
+
+Scrolls and potions are basically the same, there's a switch case
+dispatch for the different effects. Like with the player commands,
+each effect could basically be a separate function, and the item
+type table could just be a function pointer lookup, instead of
+having a switch-case of basically unrelated bits of code.
+
+There's a hard-coded 20 elements in the un-id:d ring, scroll and
+potion types. `flavours_init` sets up a table of 10 of them. There's
+a messy permutation loop that keeps re-guessing the next item until
+it hits one that hasn't been seen before. The Knuth shuffle would be
+the cleaner way to do random permutations. Also, the code block is
+copy-pasted for each of rings, scrolls and potions.
+
+`create_obj_class` creates random objects of a certain class, like
+potions or scrolls.
+
+Then there's copy-pasted code for printing object names either to a
+file or to the on-screen messages.
+
+Picking up stuff with `attempt_pickup`. Takes no parameter,
+implicitly tries to pick up from the player's location. Also,
+there's just one item per cell, so there's no need to make an item
+select UI. Gold gets picked up automatically and goes into the gold
+count stat, stackable items get stacked if you already have some in
+your inventory. Otherwise you need to have a free slot from your
+hardcoded 19 available ones.
+
+Weapons and armor can be damaged with `damage_obj`.
+
 ### `permobj.c`
+
+Item stat data.
+
 ### `permons.c`
+
+Monster stat data.
+
 ### `pmon2.c`
+
+Helper functions to query monster types.
+
 ### `rng.c`
+
+A simple custom random number generator that returns ints and a
+random seed function that uses system time, process id and user id
+to set things up.
+
 ### `vector.c`
+
+Geometric vector utils. There's just a single function
+`compute_directions`. Given two 2d int points, it returns the deltas
+between them, the 8-dir unit vector towards the second one, and
+whether the second point is within a cardinal axis from the first
+one (presumably for ranged attacks along movement directions) or
+within melee distance. I guess this is a catch-all geometry helper
+for AI code.
+
 ### `u.c`
 ### `monsters.c`
 ### `mon2.c`
