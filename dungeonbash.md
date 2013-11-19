@@ -8,10 +8,8 @@ A modern roguelike with a very small code base.
 Source code overview
 --------------------
 
-Source uses mixed tabs and spaces for indentation. It will be laid
-out wrong unless your editor has tab width set to 8. The only reason
-to use physica tabs at all is to support variable indetation
-levels, so this is just doing it wrong.
+Source uses mixed tabs and spaces for indentation. This is bad.
+Indent with physical tabs only or use spaces everywhere.
 
      483   1469  10787 dungeonbash-1.7/bmagic.c
       59    330   2169 dungeonbash-1.7/bmagic.h
@@ -230,8 +228,148 @@ one (presumably for ranged attacks along movement directions) or
 within melee distance. I guess this is a catch-all geometry helper
 for AI code.
 
+A single function probably shouldn't be in a file of its own.
+
 ### `u.c`
+
+Operations on player. There's a `recalc_defence` function that does
+complex calculations on player's inventory and statuses to calculate
+a defense value. This needs to be called whenever the player's
+statuses or inventory changes.
+
+`move_player` figures out whether a move command will result in an
+attack, a step or neither. Actually moving the player object to a
+new position is done by `reloc_player`.
+
+`reloc_player` also does the simple field of view, where rooms
+become entirely visible when you step into them. In corridors, the 8
+cells around the player are visible. Finally it tells you the
+objects in the current cell. Lots of work for one function.
+
+Then there are gain and drain functions for changing body and
+agility stats. Damage and heal similarly for health. Going to zero
+on any will kill you. Stat drain can also be either temporary or
+permanent.
+
+The changes set `status_updated` global variable. This is used to
+re-draw the status line in display code.
+
+Functions for game over and game start UI.
+
+There's a function for gaining experience and leveling up if you hit
+the level threshold. The level up gains you some stats, more max hp,
+and heals you.
+
+`teleport_u` looks randomly for rooms and floor slots until giving
+up if it can't find free space. Uses the same `reloc_player` as the
+move function did.
+
+`update_player` runs the player state ticks, like hunger, health
+regeneration, and status damage timeouts. This is called at the same
+speed regardless of the player's speed. Effects from the player's
+rings happen at the player's movement speed though, and are placed
+at the `main_loop` function instead.
+
 ### `monsters.c`
+
+Function `summoning` tries to spawn random monsters around a spot.
+It specifically doesn't create magician monsters, I guess they can
+do summons of their own, so this could lead into an explosion. "Can
+a monster span into this spot" is a rather clumsy expression that
+explicitly checks the terrain and lack of an existing monster. Could
+probably be a helper function instead.
+
+There are some out of depth computations. They depend on depth being
+a global variable. Monsters are automatically rejected for the
+summon, etc. if their power level is higher than the current depth.
+
+There's also an `ood` function for creating a scaling value for out
+of depthness. This gets added to stats of the generated monster, and
+as far as I'm eyeballing things, seems to make deep monsters weaker
+at shallow depths and shallow monsters stronger at deep depths.
+Interesting. This is factored in in the `create_mon` function, which
+you give an explicit monster template, so it won't do random
+guessing and rejecting of the type anymore.
+
+Function `death_drop` generates drops using a switch-case from
+monster type. A bigger game would probably want to make this data
+driven, but here it works nicely by having some chains of random
+computations going on. Monsters don't have actual inventories here
+of course, the items just get created when they die.
+
+Magic numbers in `print_mon_name` tell which article from 'a',
+'the', 'A' or 'The' should be used.
+
+Monsters are damaged and killed by `damage_mon` function.
+
+`teleport_mon_to_you` teleports a monster either to the same room as
+the player or next to the player in a corridor. Magic guys do this.
+`teleport_mon` is basically the same as `teleport_u`, except for
+monsters. Could use to have some code sharing between monsters and
+player so that this stuff wouldn't need to be repeated.
+
+Then there's `summon_demon_near`, which seems like a special case of
+`summon`. Could probably have done this with a more parameterizable
+general summon function.
+
+The general update func for monsters is `update_mon`, which again
+mirrors `update_player`. Regular monsters get some regeneration,
+trolls get lots and zombies get none. A bigger game would probably
+use monster intrinsic flags instead of looking at the actual monster
+types for this.
+
 ### `mon2.c`
+
+Monster AI code here. Lots of lines here to express reasonably
+simple concepts. The AI functions give monsters three preferred
+moves. `get_drunk_prefs` gives three random dirs, and uses 40 lines
+of code to express this. `get_chase_prefs` looks for a route towards
+the monster's target position.
+
+The functions beyond this are probably the trickiest in the code
+base. Somewhat vague understanding of them follows.
+
+`get_seeking_prefs` figures out how to best move towards player or
+something. Not really sure how this differs from `get_chase_prefs`.
+`get_naive_prefs` just homes in on the player as straight as
+possible.
+
+Smart monsters will also try to avoid cardinal directions from
+player to avoid ranged attacks if they don't have a ranged capacity
+themselves.
+
+The preference functions are called by `select_space`. Which has a
+magic number for the selection mode.
+
+`mon_acts` is the big AI dispatch routine.
+
 ### `combat.c`
+
+Function `player_attack` chooses either `ushootm` or `uhitm`,
+depending on whether the player attacks with a ranged or a melee
+weapon.
+
+The player rolls d(agility + level) against the enemy's defence to
+try to hit it. Damage is d(weapon power) + (body / 10).
+
+Then there's stuff for rings hurting the enemy.
+
+Shooting projectiles doesn't cause any kind of visual effect. The
+projectiles move until they hit something. It's hard to adjacent
+monsters, and then it gets harder to hit the further the projectile
+has flown.
+
+Then there are the `mhitu` and `mshootu` functions for monsters
+attacking the player. Monster attacks cause the player's armor to
+degrade. The player can have total immunity to damage types, if
+wearing an appropriate ring.
+
+Enemies can damage each other with ranged attacks. Don't think this
+will lead to infighting though.
+
 ### `bmagic.c`
+
+Stuff the magic guys will do. There's just one `use_black_magic`
+function that dispatches over different monster types. The effects
+are monster summons, ranged attacks, curses on player and teleport
+tricks.
