@@ -7,7 +7,14 @@ The plan: Study major and not-so-major open source roguelikes and
 write articles about interesting implementation details and how they
 solve the common problems in roguelike development.
 
+Game notes
+----------
+
+- [Rogue](rogue.md)
+- [Martin's Dungeon Bash](dungeonbash.md)
+
 Question list:
+--------------
 
 - What are the main data structures?
 - What is the overall program flow starting from the main function
