@@ -12,6 +12,7 @@ Game notes
 
 - [Rogue](rogue.md)
 - [Martin's Dungeon Bash](dungeonbash.md)
+- [Hack](hack.md)
 
 Question list:
 --------------
