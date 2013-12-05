@@ -1,6 +1,8 @@
 Rogue
 =====
 
+Source code review by Risto Saarelma, 2013-11-17
+
 Notes on Rogue Clone 5.3, a BSD-licensed clone of the original Rogue written by
 Tim Stoehr.
 

@@ -1,6 +1,8 @@
 Martin's Dungeon Bash
 =====================
 
+Source code review by Risto Saarelma, 2013-11-19
+
 Notes on Martin's Dungeon Bash version 1.7.
 
 A modern roguelike with a very small code base.
