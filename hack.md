@@ -8,6 +8,10 @@ direct predecessor Hack fell into obscurity quite fast when NetHack
 development started. Will be interesting to see what the initial
 stages of the design look like.
 
+The source code calls things like weapons and potions 'objects'.
+I'll be calling these 'items' in my notes, since I prefer object to
+mean any game object whatsoever, not just a specific subtype.
+
 Source code overview
 --------------------
 
@@ -796,62 +800,381 @@ there's also the function to get the point from the map with a
 cursor, `getpos`, in this file. Total lack of interface separation
 again.
 
+You can name monsters. I guess you'd use this on your pets.
+
+Confidence inspiring comments:
+
+    /*
+     * This routine changes the address of  obj . Be careful not to call it
+     * when there might be pointers around in unknown places. For now: only
+     * when  obj  is in the inventory.
+     */
+
+This is for `do_oname` for renaming items. C programming gets quite
+creaky when freeform strings are involved.
+
 ### `hack.do_wear.c`
+
+Equipment logics. Won't be a surprise that UI and logic get blended
+together. Details like not being able to change gloves with a cursed
+weapon in hand are here already.
+
+There's complex logic for keeping the equipment set consistent with
+existing equipment, with global variables pointing to the player's
+current equipment slots. You can only wear one of an armor type, two
+rings, and so on. Everything's special cased per type of armor, no
+data-driven programming here. A more generic game (like DCSS) would
+probably want to support different creature types with different
+equipment slots, though I guess that could be just another set of
+special case branches.
+
+The separate treatment for rings and armor is here. I never figured
+out why you had to have different wear commands for them. I guess if
+you have different starting point functions and you do the UI by
+mapping keys into function pointers, you'd get different keys too.
+But why not just have one command for all equips?
+
+Doesn't look like there are any amulets here besides the Amulet of
+Yendor, nor is there wearing amulets in the logic.
+
 ### `hack.dog.c`
+
+All pets are "dogs" here, apprently. The monster function here is
+`dog_move`, with 260 lines.
+
+This handles hunger, looking for food (dogs know not to eat
+cockatrices), delays from eating food, avoiding traps and cursed
+objects.
+
+Function's a mess of data structure internals juggling. Not really
+bothering to read through it. The end result is dog doing dog stuff.
+Factoring lower-level stuff into utility functions so that this
+function could actually be written at a dog behavior logic level
+instead of constantly dipping into coordinate and pointer juggling
+would have been great here.
+
 ### `hack.eat.c`
+
+Hunger and eating. There's quite a bit on tins and how well various
+items work for opening them. Not really sure why the game needed to
+have tins to begin with.
+
+Mostly the same old thing here. Entry point function for the eat
+command, asking the player what to do, then a tangle of logic for
+the various types and states of foods. Food poisoning, dying from
+choking on food when eating while oversatiated.
+
+There's a function for corpse intrinsics. There's a dire warning if
+you eat humans, but all you get is an aggravate monster trait, like
+you do from eating a dog.
+
 ### `hack.end.c`
+
+Death messages and high score tables. Nothing that interesting here
+for the rest of the gameplay. Just really long functions for
+creating the death message and handling the high score table.
+
+I'm not sure if Hack had the monster kill stats thing yet.
+
 ### `hack.engrave.c`
+
+Engraving is another weird Hackism like object naming that has
+gratuitous string input, complex rules involved with it, and doesn't
+tie in that much with the rest of the gameplay. It's basically only
+used for the thing where engraving Elbereth on the floor makes a
+square that frightens the monsters as long as the engraving stays
+intact. This has basically been lambasted as bad design, both from
+the spoiler-dependence viewpoint and as basically a patch over the
+game randomness throwing otherwise unsurvivable stuff at you.
+
+Still, lots of logic here, with the various engraving tools, from
+writing on the dust with your finger to using a wand of fire to burn
+the words. And you need to not be levitating for methods that
+actually need you reaching the floor, but can use the wand even from
+above.
+
 ### `hack.fight.c`
+
+Combat code. Special function `hitmm` for monsters fighting each
+other. (Hack does have rings of conflict in addition to pets.) The
+player hitting monsters is handled in `hmon`. These names are sorta
+cryptic for globally accessible functions... Another special case
+jumble here. Two-handed swords called 'Orcrist' doing extra damage
+against orcs is checked in `hmon`. So, yeah, neat, but another
+spoiler exploit bit of design where naming the sword when you do
+know the trick is a no-brainer, but that naming the sword like that
+actually helps isn't discoverable without a hint from outside the
+game mechanics. Also, apparently garlic will frighten any undead.
+
+The logic for when you're just trying to hit the monster goes in
+`attack`. This alerts the monsters even if you fail to deal damage.
+
 ### `hack.invent.c`
+
+Invetory object data structure juggling. Logic for objects on map.
+
+Function `getobj` is a generic invetory selection thing, like for
+picking the food item to eat or the wand to zap. It's horrible.
+
+The whole text app command prompt UI is really thick in this module.
+
 ### `hack.ioctl.c`
+
+Unix signal stuff.
+
 ### `hack.lev.c`
+
+Saving levels and objects on a level to disk for the level
+persistence and save games.
+
 ### `hack.makemon.c`
+
+Random monster generation. Some monster traits, like invisible
+stalkers being invisible, are set in the `makemon` function. I guess
+the monster type data isn't expressive enough to handle all of
+these. There's also special logic to always create a horde of orcs
+or killer bees when you randomly create one of them. (I guess this
+means that you can't call `makemon` and expect to create at most one
+new monster.)
+
+Some position functions here for getting good random locations for
+the monsters.
+
 ### `hack.mhitu.c`
+
+Getting hit by a monster, very different things can happen here than
+when you hit a monster. For example you might be swallowed by a
+monster who then gets stoned by a cockatric, which will turn you to
+stone as well. Nice.
+
+Lovely check idiom against specific monster types:
+`if(!index("1&DuxynNF",mdat->mlet))`. The string has the letters for
+the monsters that don't apply to the following branch.
+
+Giant switch-case on monster letter then, with special attacks for
+the types.
+
 ### `hack.mklev.c`
+
+Hack has rooms-and-corridors and maze type levels. Haven't seen
+rooms data structure used much elsewhere, but it is present here.
+
+Not noticing anything particularly interesting in the room code.
+Some nice abstraction with the corridors though, you just call
+`join` with the indices of the two rooms, and it'll try to dig an
+inbetween corridor. This also creates doors in the openings.
+
 ### `hack.mkmaze.c`
+
+This makes mazes. Nobody likes mazes in games.
+
 ### `hack.mkobj.c`
+
+Making items, like you make monsters. Again there's the creator
+method `mksobj` with a special case dispatch based on item type. It
+sets curses, item counts, want charges etc.
+
 ### `hack.mkshop.c`
+
+This seems to have turned into a general special room logic instead
+of just being for shops. It can generate zoos and morgues and things
+as well. Seems to work by finding existing rooms and modifying
+those.
+
 ### `hack.mon.c`
+
+Monster behavior. AI that looks for monsters to move in `movemon`.
+Function's a mixed bag otherwise, it handles monsters drowning in
+pools, the player getting a warning about monsters if they have a
+special ability for that, and deallocating data for the dead
+monsters.
+
+Movement function is `m_move`. Dogs, shopkeepers and guards get
+special function calls. Greedy monsters can be distracted by gold
+or gems on the floor, which is a nice touch.
+
+Somewhat interesting function is `killed`, which details what
+happens when a monster gets taken out. You get experience, lose luck
+for killing humans or other peaceful things. Humans are always
+friendly in Hack, looks like. Also you lose telepathy for killing
+humans.
+
+There's experience gain and also going up a level here. The monster
+object gets cleaned up and a corpse item gets created.
+
 ### `hack.objnam.c`
+
+Generating the object name string. C code for string handling is
+mostly just depressing.
+
+There is `readobjnam` here, that's used by wishing. It's messy.
+
 ### `hack.o_init.c`
+
+Shuffling the unidentified item descriptions I guess.
+
 ### `hack.options.c`
+
+Game options. Cruddy stringy ad hoc command liney interface to them.
+
 ### `hack.pager.c`
+
+Inline browser for help files.
+
 ### `hack.potion.c`
+
+Potion effects, you know the drill.
+
+There's dipping into potions, but since Hack doesn't do blessings
+and holy water yet, there's not much use for it. You can poison
+arrows, darts and bolts.
+
+Smoky potions may contain ghosts.
+
 ### `hack.pri.c`
+
+Map display. Lots of special cases and three-letter function names.
+
 ### `hack.read.c`
+
+Reading scrolls. Special case switcheroo.
+
 ### `hack.rip.c`
+
+Print the player tombstone.
+
 ### `hack.rumors.c`
+
+Print a rumor from the rumor file. It maintains a bit vector for
+rumors that have been used already, and tries to give you new ones
+every time.
+
 ### `hack.save.c`
+
+Saving game. Doesn't seem to be doing anything particularly clever.
+
 ### `hack.search.c`
+
+Looking for hidden stuff. Traps, secret doors, mimics.
+
 ### `hack.shk.c`
+
+Hello three-letter names. Shk means 'shopkeeper'. Stuff for
+shopkeeper AI, bills, trying to steal etc. Also for the quite
+non-shop special rooms mixed in here.
+
+Again there's a lot of logic for something that other games mostly
+just abstract away, since most don't seem to consider it to really
+make that much of a contribution to core gameplay.
+
 ### `hack.shknam.c`
+
+Shopkeeper names. They seem to be place names from different
+countries.
+
 ### `hack.steal.c`
+
+This is for monsters stealing stuff, not for the player stealing
+from shops.
+
 ### `hack.termcap.c`
+
+Terminal handling crap.
+
 ### `hack.timeout.c`
+
+Status effects timing out.
+
 ### `hack.topl.c`
+
+Message printing.
+
 ### `hack.track.c`
+
+Data structure for coordinate lists.
+
 ### `hack.trap.c`
+
+Trap logic. Traps can hit both monsters and player. `dotrap` is the
+function for player, `mintrap` is the one for monsters.
+
+Teleporting is also here. Teleport control is a possible intrinsic.
+
 ### `hack.tty.c`
+
+Terminal handling crap.
+
 ### `hack.u_init.c`
+
+Character creation dialog. Player object initialization.
+
 ### `hack.unix.c`
+
+Stuff for clock, mail, file system etc.
+
 ### `hack.vault.c`
+
+There are vaults you can rob if you can get in them. Basically the
+same as NetHack. There are guard NPCs who use weird adventure game
+logic of popping up and disappearing instead of being more
+persistent creatures in the game world. Also another spoiler exploit
+and gratuitous string input bit where you can identify yourself as
+Croesus to the guard to get a free rein to loot the vault.
 
 Fun fact: Multiple Greek transliterations are supported. The player
 can identify themselves as either "Croesus" or "Kroisos" to a vault
 guard to be left in peace. Although the string comparison doesn't
 seem to be case-insensitive, so you'd better capitalize the name
 correctly. This is still around in NetHack, but there the matching
-is case-insensitive.
+is case-insensitive. From Nethack: "His name can also be spelled
+Kroisos and, if your game has Tourists, as Creosote, after a
+Discworld character based on Croesus."
 
-From Nethack: "His name can also be spelled Kroisos and, if your
-game has Tourists, as Creosote, after a Discworld character based on
-Croesus."
+Again there's a sizable chunk of special logic for a very minor part
+of the game. I'd think these things will add up into a headache for
+the maintainer eventually.
 
 ### `hack.version.c`
+
+Printing the version string.
+
 ### `hack.wield.c`
+
+Logic for wielding and enchanting weapons.
+
 ### `hack.wizard.c`
+
+So this is for Wizard of Yendor, the end boss, as opposed to Wizard,
+the player class, or Wizard Mode, the game debugging interface.
+
+The Wizard will steal the Amulet and teleport back to the bottommost
+level if he has it. Which seems pretty dickish if this happens close
+to surface. Not sure if the Wizard also comes back from the dead in
+this version, or if that's just NetHack. Other than that, there's
+just some extra nasty array of special abilities in play here.
+
 ### `hack.worm.c`
+
+Long worms. Another complex bit that doesn't really matter for
+gameplay. Guess it's neat to have multi-tile monsters though.
+
 ### `hack.worn.c`
+
+Helper stuff for equipment bitmasks.
+
 ### `hack.zap.c`
+
+Zapping wands. Same thing as with the other multi-use items. Wands
+do have the extra complexity of sometimes requiring aiming and other
+times just doing a thing. Also wands of wishing are a thing, and use
+the string to item type function `readobjnam`.
+
+Boomerang use and monster ranged attacks are also here.
+
 ### `makedefs.c`
+
+Some kind of offline tool.
+
 ### `rnd.c`
+
+Some very simple rng utility functions.
