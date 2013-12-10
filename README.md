@@ -7,12 +7,17 @@ The plan: Study major and not-so-major open source roguelikes and
 write articles about interesting implementation details and how they
 solve the common problems in roguelike development.
 
+The notes are somewhat opinionated. I'll be trying to think of
+better ways to do things or comment on later improvements in design
+if I can think of some.
+
 Game notes
 ----------
 
 - [Rogue](rogue.md)
 - [Martin's Dungeon Bash](dungeonbash.md)
 - [Hack](hack.md)
+- [POWDER](powder.md)
 
 Question list:
 --------------
