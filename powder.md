@@ -794,6 +794,152 @@ And that's it for map basic logic. 6250 line file. Way big.
 
 ### `build.cpp`
 
+Map generation methods here. Starting point is `MAP::build`, which
+decides what kind of terrain to build based on depth.
+
+    // Decide what sort of map to build.  If the current level is 10
+    // we do the big room.
+    // Rough map:
+    // 0: Surface World.
+    // 1-5: Roguelikes.
+    // 6-7: Lit QIX.
+    // 8-9: Unlit QIX.
+    // 10: Big Room
+    // 11-14: Mazes
+    // 15: Cretan Minotaur
+    // 16-17: Lit cavern
+    // 18: Dark cavern
+    // 19-20: Dark water cavern
+    // 21: Dark cavern, Belweir
+    // 22: Quizar
+    // 23: Hruth
+    // 24: Klaskov
+    // 25: Circles of Hell.
+
+There's some sort of stress test code under an `if (0)` here. Weird.
+After that, it's dispatch on depth to different map builder
+functions. Last thing the function does is place some random traps
+over the place for every level.
+
+Rooms as a separate type show up here. They're rectangle-shaped
+areas, but have an explicit list of tiles, so I guess these are
+vault-type prefab things more than the classic roguelike mapgen
+where rectangular rooms just are a first-class map element instead
+of an emergent structure from the tile soup.
+
+An example first generation function you call from `build` is
+`MAP::buildRoguelike`.
+
+The first step is building random rooms until you've built 20 or
+can't fit any more (not fitting is defined as having failed to fit a
+random room 40 times). The rooms are kept in `ROOM` structs that are
+filled by `buildRandomRoom` function.
+
+Also there's this bit (`numroom` is initially 0):
+
+    if (!numroom)
+    {
+        buildRandomRoomFromDefinition(rooms[numroom],
+            chooseRandomRoom(myDepth));
+    }
+    else
+    {
+        buildRandomRoom(rooms[numroom]);
+    }
+
+It doesn't seem like you'd need any special treatment when `numroom`
+is 0, so is it just "the first room built will be some sort of
+prefab"?
+
+`buildRandomRoom` just sets up the room data structure into a
+rectangle that has a random size and position that make sense for
+the map bounds and the valid room sizes.
+
+`buildRandomRoomFromDefinition` takes a prefab definition `ROOM_DEF`
+as an extra parameter, which locks the room dimensions. It gives it
+a rotation out of 8 possibilities, four directions and two
+mirrorings for each? Prefab rooms also get some extra border space
+compared to regular ones.
+
+Each room is then checked with `checkRoomFits`. Factoring stuff like
+this into its own functions is pretty good in POWDER, a lot of the
+older code I've seen just smashes all logic together. The fitter
+checks that the room area is empty and that the room border doesn't
+have walls, as that would mean two rooms touching and you couldn't
+build a path between them.
+
+The rooms are drawn on the map immediately after they are observed
+fitting. (It makes sense why you'd build the vault room first if you
+want to be sure it gets on the map, the first room should always get
+a pass on being valid since the rest of the map is empty.) Given
+that passing rooms are frozen in place, you can't do fancy
+search-algorithmy stuff like backtracking with this type of
+generation, where you could discard a whole branch of rooms-to-be
+before getting satisfied with the whole set and only then baking it
+in.
+
+Next in the build function is logic for connecting the rooms. This
+part is neat. It tracks the connected rooms with just the single
+loop counter. Counting up `i`, it connects room `i` to a random room
+`[0, i)` at every cycle. So it grows the connected set upwards, and
+since the rooms are random, always going in the same direction
+doesn't matter.
+
+The pathing is done by `MAP::drawPath`, which gets start and end
+positions and tries to connect them. A bit hard to follow the logic,
+but it's basically digging towards the end point and turning around
+if it hits map walls.
+
+After the rooms and corridors are done, there's a tricky bit in
+`closeUnusedExits`. This only applies to prefab rooms. They have a
+fixed set of exits defined in the prefab, but only some of those are
+likely to have been connected in the previous phase. There's a
+verbose part in the function that basically walks through the edges
+of the room, recognizes exit tiles on the edge with no corridor
+beyond them, and replaces them with the type of the tile immediately
+preceding them along the edge. (It takes 50 lines of C++ to express
+what I just said in one sentence, some sort of clever geometric
+primitive vocabulary might help make the programs more concise here?
+Possibly also to make them utterly incomprehensible.) There's also
+option `force` to make the room have an exit if it has none. This
+looks like it should basically be a separate function.
+
+Next bit is `MAP::populateRoom`. Early on there's this bit:
+
+    // If we are loading from disk, we've already populated the room
+    // from disk.
+    if (ourIsLoading)
+        return;
+
+Functions having to become different functions if global state is
+set some way seems a bit error-prone. Code after this creates mobs
+from a prefab room's mob specification. Rooms can have specific mobs
+in `definition->moblist` and a list of places to spawn generic mobs
+of a given level in `definition->moblevellist`. Also support for
+boss mobs using `INTRINSIC_LEADER`, and the other mobs are tamed to
+the leader if present. Not really sure what this entails, I suppose
+at least members of the same tame group won't infight. Then there's
+similar generation for items and signposts. This seems to only do
+the prefab room case, there's no spawning of completely random mobs
+for a generic room.
+
+Interesting minor utility: `MAP::smooth`. This deletes turns floor
+tiles that have 3 non-floor neighbors into wall tiles, effectively
+wiping out single-tile dead ends from the map.
+
+Some different mapgens then. There doesn't seem to be much
+abstraction for them, all are just writing the raw tile array
+basically.
+
+Bit more interesting is `MAP::buildSurfaceWorld`, though I think the
+surface in POWDER isn't that big a part of the gameplay. The code
+seems to be doing some kind of heightmap generation that makes the
+map boundaries have max height so that they get mapped into
+impassable mountains, and then putting grass, water, grass, forest,
+hills, mountain based on ascending height on the map. Interesting
+trick having water between two grass layers, that gets you lakes I
+guess.
+
 ### `creature.h`, `creature.cpp`
 ### `action.cpp`
 ### `ai.cpp`
