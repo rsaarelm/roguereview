@@ -37,3 +37,5 @@ mkdir -p moria; cd moria; unzip -o ../cache/mor552cs.zip; cd -
 unzip -o cache/rogue-libc5-ncurses.zip; tar xzvf rogue-libc5-ncurses.tar.gz; rm rogue-libc5-ncurses.tar.gz
 
 if [ ! -d nethack4 ]; then git clone git://gitorious.org/nitrohack/ais523.git nethack4; fi
+
+if [ ! -d incursion ]; then git clone https://github.com/rmtew/incursion-roguelike.git incursion; fi
