@@ -26,6 +26,11 @@ get http://homepages.cwi.nl/~aeb/games/hack/hack-1.0.3.tar.gz
 get http://downloads.sourceforge.net/gearhead/gearhead/1.100/gh-1100-src.zip
 get http://sourceforge.net/projects/avanor/files/avanor/0.5.8/avanor-0.5.8-src.tar.bz2
 
+if [ ! -f cataclysm2.zip ]
+then
+    wget https://github.com/Whales/Cataclysm2/archive/master.zip -O cataclysm2.zip
+fi
+
 cd -
 
 for x in cache/*.tar.gz; do tar xzvf $x; done
@@ -39,3 +44,5 @@ unzip -o cache/rogue-libc5-ncurses.zip; tar xzvf rogue-libc5-ncurses.tar.gz; rm 
 if [ ! -d nethack4 ]; then git clone git://gitorious.org/nitrohack/ais523.git nethack4; fi
 
 if [ ! -d incursion ]; then git clone https://github.com/rmtew/incursion-roguelike.git incursion; fi
+
+unzip -o cache/cataclysm2.zip
