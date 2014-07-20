@@ -22,7 +22,7 @@ Jeff Lait did a
 about porting POWDER in IRDC 2012. His basic approach is picking a
 sufficiently low-level and simple abstraction layer (a 'bedrock') to
 build the game on, and then port the bedrock to other platforms. The
-GBA architecture he originally build Powder on ended up working as a
+GBA architecture he originally build POWDER on ended up working as a
 passable general bottom layer he just wrote an adapter on for other
 platforms.
 
@@ -225,7 +225,7 @@ the free software MT C file.
 
 There's a global variable for the RNG state. There can be a stack of
 the states via an intrusive linked list in the `RAND_STATE` type for
-the state. (Class names are ALLCAPS in Powder.) So you could have a
+the state. (Class names are ALLCAPS in POWDER.) So you could have a
 bottom RNG that is used to create all the levels deterministically
 from the seed, and a higher-level RNG that can be called during
 gameplay and which won't mess the generation of the next level no
@@ -940,11 +940,240 @@ hills, mountain based on ascending height on the map. Interesting
 trick having water between two grass layers, that gets you lakes I
 guess.
 
+Some quest level stuff like a tridude lair. There's a quite
+complicated `buildSpaceShip` function. There's functions for drawing
+circle shapes on the map for this.
+
 ### `creature.h`, `creature.cpp`
+
+Class `MOB` is the last blob thing. These are the player avatar and
+the other creatures. The class definition in the header lists the
+huge number of methods these have. The implementation is split to
+three files, `creature.cpp`, `action.cpp` and `ai.cpp`. Around 1000
+lines in `creature.h` and 10000 lines in `creature.cpp`.
+
+A method that shows up a lot is isAvatar, which checks if the
+recipient is the player avatar mob.
+
+Mobs are set up using `MOB::create` which takes a definition value
+as the parameter. The definition `MOB_AVATAR` causes the player to
+be created, and triggers player character specific setup. Starting
+classes get queried with `piety_chosengod`, which I guess refers to
+some global state. There's almost 400 lines of code inside the
+function specifying the starting inventories of the various player
+types.
+
+Spawns are chosen by `chooseNPC`. The weighting describes some more
+complex weighting schames, then settles to one where all mobs less
+than or equal to threat level have equal chance of spawning. This
+seems to pop up in several places as the nicely working version.
+Mobs one level up have .5 chance of spawning, two levels up have .1
+chance and ones above have zero chance. Unless the RNG tells you to
+fuck the player 1 times out of 1000 for regular chars, 1 out of 100
+for cultist chars.
+
+`MOB::makeUnique` creates named uniques using a demon language
+syllable set and giving them random intrinsics.
+
+Movement test for diagonal movement only allows a diagonal movement
+if the path is open along either orthogonal direction towards the
+diagonal.
+
+Mobs can sense other mobs via sight, esp, hearing or "warning". Only
+mobs with a mind can be sensed with esp. Blind mobs sense themselves
+with esp even when they're not clairvoyant.
+
+The reliably hypermassive main entity update method is
+`MOB::doHeartBeat`. This one's 1000 lines. All the status counters
+and changing statuses, tame pets going wild and so on are crammed
+into the single monster function.
+
+I don't know what the solution to the giant entity update method
+antipattern is. I guess you'd want to write the processes that
+operate on the live entity as linear code, with some kind of way to
+annotate the turn breaks. Cooperative threads or something. Of
+course then you'd need a way to instantly clear all the threads when
+the mob dies and avoid any strange bugs from interactions of the
+several threads. The giant method does make execution order of the
+various logics explicit, which makes it easier to set up fixes for
+interactions.
+
+Some of the logic is conditioned directly on mob's type, eg.
+`MOB_FIREELEMENTAL` instead of specific intrinsic flags.
+
+`MOB::validMovePhase` implements lait's slow - normal - quick - fast
+speed system. Method `doMovePrequel` calls it and tries to figure
+out various other reasons for a mob not to act on a given turn.
+
+Big bunch of combat logic in `MOB::receiveAttack`. There's breaking
+autorun for the player, angering NPCs, a to-hit calculation that's
+full of pen&paper baroqueness.
+
+Then there's reflex counterattacks, and checks against causing an
+infinite loop of counter-counterattacks.
+
+A separate `MOB::recieveDamage` handles the actual hurting, damage
+reductions and the like. There's also death logic here. Creating
+corpses, messaging for death and so on.
+
+Also there's message string format parsing here. Urgh, string
+parsing code in an application logic module always feels wrong to
+me.
+
+There are strenght/smarts checks where you autowin or autofail
+unless your relevant stat isn't within two points of the target
+level.
+
+Equipment stuff is handled by `MOB::rebuildAppearance` which
+generates the composite player avatar sprite and
+`MOB::rebuildWornIntrinsic` which collects intrinsic bonuses from
+equipped inventory items. I guess these need to be called whenever
+equipment changes.
+
+The zapping callback thing shows up again with
+`MOB::zapCallbackStatic`. This handles how mobs respond to spell
+effects. It also seems to have a general fireball explosion logic
+and similar environment effects that will trigger even if there
+wasn't a mob that got hit. Also, it's fun how there is forest fire
+logic everywhere around fire logic, even though as far as I
+understand the overworld with forests is basically some weird
+endgame easter egg in POWDER.
+
 ### `action.cpp`
+
+While `creature.cpp` was about queries and effects done on a mob,
+`action.cpp` is about mobs doing stuff, also for the command
+functions which player input maps to.
+
+`MOB::actionBump` does the smart movement. It attacks hostiles on
+the way, displaces friendlies on the way.
+
+The general code is pretty straightforward here. Each verb gets a
+method, the method has logic for trying to execute the verb,
+generating messages from actions and so on. The player and the NPCs
+use the same code.
+
+The NetHackiness is showing. There's actions for talking and jumping
+for example which are very marginal for the core gameplay. Also
+logic for falling down pits and climbing out of them, which isn't
+very interesting gameplay-wise, doesn't mesh that well with the 2D
+map vocabulary, but it was in Hack so it gets put here.
+
+There's more pseudo-3D stuff, you can try to swim to surface if
+submerged in liquid. You can climb to trees in the endgame
+overworld. (Lait went utterly 2D in his later portaling engine used
+for 7DRLs, there weren't even stairs down anymore, just
+non-Euclidean paths winding down to different dungeon layers.)
+
+`MOB::actionAttack` is a big piece of logic. An interesting piece is
+that the system needs to remember the previous movement direction of
+the mob so that it can trigger a charge ability if the mob is
+attacking in the same direction it was previously moving.
+
+There's a loop for doing multiple attacks, and at loop start it
+needs to recheck whether the target mob is still alive and in place
+to receive blows, and whether the player has not died from
+counterattacks or other combat effects.
+
+Artifact items can make extra attacks, head butts with helmets,
+shield slams, kicks with boots and so on.
+
+A lot of this stuff could probably make do with NetHack style
+division into areas of concern like potions, food, movement that go
+into their own files.
+
+Eating things has quite a complex logic. The effects for various
+potions sem to be here. Also, apparently it can be possible to eat
+spellbooks.
+
+Reading has the logic for scrolls and spellbooks.
+
+This is a bit iffy pattern, there's huge functions that have quite
+different actual behaviors under them, like eating foot, drinking a
+potion, or eating an item that grants intrinsics, or reading a
+scroll that produces temporary effects versus a spellbook that
+teaches a spell. The effects should probably be split up further
+into their own functions.
+
+Biggest humongous method seems to be `MOB::actionCast`, which has
+the logic of every spell under a switch-case. The function's close
+to 3000 lines long. Refactoring this to functions for specific
+spells shouldn't be too complex. Also, might want to separate
+physical effects of a spell, like a bunch of acid flying about, from
+the casting of the spell, so that you could have other sources of
+acid explosion that produce the same end result in the game.
+
+There aren't many purely data-driven spells though, like "fire
+blast", "ice blast" and "lightning blast" that would differ only on
+a damage type enum. Lait wrote somewhere about how each new spell
+should involve actual new nontrivial code to be worth adding. There
+are spell that seem to differ just in magnitude of effect though,
+like heal and major heal, which could be templatized with data.
+Maybe the system should just have been set up to support power
+levels for the spells to maintain the new spell - new logic rule.
+
+Some more involved spells are force wall, which creates an expanding
+force field around the player avatar which pushes enemies away and
+rolling boulder which turns a wall into a boulder that can run over
+enemies and into pits.
+
+There's polymorphing logic, this ought to be fun. Also there seems
+to be a Pokemon-style evolution mechanic here where creatures evolve
+into more powerful forms. There's also logic for a creature
+polymorphing into a multi-tile form and crushing surrounding walls.
+
+In the petrifying mechanics, flesh golems turn to stone golems and
+regular trolls turn to rocky cave trolls, and vice versa for
+stone-to-flesh. (Shouldn't a stone golem just turn to inert meat
+since it was just a magically animated sculpted statue instead of a
+biological thing that was turned into stone? Not sure if you can try
+to stone-to-flesh walls and boulders like you can in NetHack here.)
+
 ### `ai.cpp`
 
+This is the last and shortest mob behavior module. Toplevel function
+is `MOB::doAI`. The basic logic is directed by a state machine
+state.
+
+There's quite a bit of item-using cleverness here. Smart mobs with
+wands can use them both to buff themselves and to attack enemies.
+There's a long section where the AI searches for target points for a
+rolling boulder spell against whatever it wants to attack, which is
+quite neat.
+
+This module is a bit better than the huge switch-cases elsewhere in
+code. Different AI actions like dousing self, stopping petrification
+and so on by and large do have separate methods.
+
 ### `victory.h`, `victory.cpp`
+
+Post-ending stuff. List of kills, victory screen.
+
 ### `piety.h`, `piety.cpp`
+
+Stuff that the gods do or don't like. Different behaviors (like
+zapping wands and eating corpses) and situations (like being
+surrounded) get piety methods called, and the piety is adjusted for
+all the gods all the time as far as I can tell.
+
+There's also logic for gods granting boons or giving punishments
+here.
+
 ### `hiscore.h`, `hiscore.cpp`
+
+Score display and saving to permanent memory.
+
 ### `main.cpp`
+
+Another file that has probably seen a lot of accretion of stuff over
+time. There's some toplevel UI logic here. Also a wishing action
+function for whatever reason. Is this debug stuff or a thing that
+you can get in regular play? More UI stuff then, being a bit messy
+as UI is. Also there's some `#ifdef` cruft for SDL, Nintedo DS and
+iOS builds.
+
+Toplevel game logic too, in `processWorld`.
+
+The gui seems to be pretty much hardcoded, without much any
+abstraction to it. Long, messy functions. `processAction` is a
+1000-line function for processing ingame player input.
