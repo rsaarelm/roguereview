@@ -27,6 +27,7 @@ get http://downloads.sourceforge.net/gearhead/gearhead/1.100/gh-1100-src.zip
 get http://sourceforge.net/projects/avanor/files/avanor/0.5.8/avanor-0.5.8-src.tar.bz2
 get http://jonathanscorner.com/download/tms2_0.tar.gz
 get http://downloads.sourceforge.net/project/sc2/UQM/0.7/uqm-0.7.0-source.tgz
+get http://pesky-reticulans.org/game/prime_src-2.4.tar.bz2
 
 if [ ! -f cataclysm2.zip ]
 then
