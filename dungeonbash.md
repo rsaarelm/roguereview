@@ -277,7 +277,7 @@ at the `main_loop` function instead.
 Function `summoning` tries to spawn random monsters around a spot.
 It specifically doesn't create magician monsters, I guess they can
 do summons of their own, so this could lead into an explosion. "Can
-a monster span into this spot" is a rather clumsy expression that
+a monster spawn into this spot" is a rather clumsy expression that
 explicitly checks the terrain and lack of an existing monster. Could
 probably be a helper function instead.
 
